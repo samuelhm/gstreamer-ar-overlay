@@ -1,0 +1,54 @@
+# Meson / Ninja build artifacts
+builddir/
+build/
+
+# Compiled object files
+*.o
+*.obj
+
+# Static and shared libraries
+*.a
+*.so
+*.dll
+*.dylib
+
+# Executables (except the project binary pattern)
+*.exe
+
+# Dependency directories
+subprojects/
+.wrap/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+\#*\#
+
+# macOS
+.DS_Store
+
+# Debug / Valgrind logs
+*.log
+vgcore.*
+
+# Core dumps
+core
+core.*
+
+# GStreamer registry cache (se genera en $HOME)
+.gstreamer-*
+
+# Compile commands (generado por Meson con -Dcompile_commands)
+compile_commands.json
+
+# Cache de clangd / LSP
+.cache/
+.clangd/
+
+# Project documentation (not tracked in repo)
+AGENTS.md
+ROADMAP.md
+proyect.md
