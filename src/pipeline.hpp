@@ -1,18 +1,9 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   pipeline.hpp                                       :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/09 10:08:08 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/09 10:08:09 by shurtado         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #pragma once
 
 #include <gst/gst.h>
+#include <gtk/gtk.h>
+
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -31,28 +22,21 @@ struct GstElementDeleter {
   }
 };
 
-struct GMainLoopDeleter {
-  void operator()(GMainLoop* loop) const noexcept {
-    if (loop) {
-      g_main_loop_unref(loop);
-    }
-  }
-};
-
 using GstElementPtr = std::unique_ptr<GstElement, GstElementDeleter>;
-using GMainLoopPtr = std::unique_ptr<GMainLoop, GMainLoopDeleter>;
 
 class Pipeline {
 public:
   explicit Pipeline(std::string_view filePath);
-  ~Pipeline() = default;
+  ~Pipeline();
 
   Pipeline(const Pipeline&) = delete;
   Pipeline& operator=(const Pipeline&) = delete;
   Pipeline(Pipeline&&) noexcept = default;
   Pipeline& operator=(Pipeline&&) noexcept = default;
 
-  bool run();
+  bool start();
+  GdkPaintable* paintable() const { return paintable_; }
+  void setQuitCallback(std::function<void()> cb) { quitCb_ = std::move(cb); }
 
 private:
   static void onPadAdded(GstElement* src, GstPad* newPad, gpointer data);
@@ -61,13 +45,14 @@ private:
 
   void handleMessage(GstMessage* msg);
 
-  GMainLoopPtr mainLoop_;
   GstElementPtr pipeline_;
+  GdkPaintable* paintable_ = nullptr;
   std::optional<SpectrumAnalyzer> spectrumAnalyzer_;
   std::optional<GLRenderer> renderer_;
   int spectrumFrameCount_ = 0;
   bool hasError_ = false;
   bool interrupted_ = false;
+  std::function<void()> quitCb_;
 };
 
 } // namespace ar_overlay

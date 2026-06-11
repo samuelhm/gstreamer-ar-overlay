@@ -12,9 +12,17 @@ Pipeline::Pipeline(std::string_view filePath) {
   pipeline_.reset(gst_pipeline_new("main_pipeline"));
   GstElement* decodebin = gst_element_factory_make("uridecodebin", "decoder");
 
-  if (!pipeline_ || !decodebin) {
+  GstElement* glsinkbin = gst_element_factory_make("glsinkbin", "glsinkbin");
+  GstElement* gtk4sink = gst_element_factory_make("gtk4paintablesink", "gtk4paintablesink");
+
+  if (!pipeline_ || !decodebin || !glsinkbin || !gtk4sink) {
     throw std::runtime_error("Failed to create GStreamer elements");
   }
+
+  g_object_set(glsinkbin, "sink", gtk4sink, nullptr);
+  g_object_get(gtk4sink, "paintable", &paintable_, nullptr);
+
+  gst_bin_add(GST_BIN(pipeline_.get()), glsinkbin);
 
   const std::string path(filePath);
   gchar* uri = gst_filename_to_uri(path.c_str(), nullptr);
@@ -29,8 +37,6 @@ Pipeline::Pipeline(std::string_view filePath) {
 
   g_free(uri);
 
-  mainLoop_.reset(g_main_loop_new(nullptr, FALSE));
-
   g_unix_signal_add(SIGINT, onSignal, this);
   g_unix_signal_add(SIGTERM, onSignal, this);
 
@@ -39,14 +45,17 @@ Pipeline::Pipeline(std::string_view filePath) {
   gst_object_unref(bus);
 }
 
-bool Pipeline::run() {
+Pipeline::~Pipeline() {
+  g_clear_object(&paintable_);
+}
+
+bool Pipeline::start() {
   GstStateChangeReturn ret = gst_element_set_state(pipeline_.get(), GST_STATE_PLAYING);
   if (ret == GST_STATE_CHANGE_FAILURE) {
     std::cerr << "Failed to start pipeline\n";
     return false;
   }
-  g_main_loop_run(mainLoop_.get());
-  return !hasError_;
+  return true;
 }
 
 void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
@@ -119,16 +128,18 @@ void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
 
   } else if (g_str_has_prefix(name, "video/")) {
     GstElement* videoconvert = gst_element_factory_make("videoconvert", nullptr);
-    GstElement* videoscale = gst_element_factory_make("videoscale", nullptr);
-    GstElement* capsfilter = gst_element_factory_make("capsfilter", nullptr);
     GstElement* glupload = gst_element_factory_make("glupload", nullptr);
     GstElement* glshader = gst_element_factory_make("glshader", nullptr);
-    GstElement* glconvert = gst_element_factory_make("glcolorconvert", nullptr);
-    GstElement* videosink = gst_element_factory_make("glimagesinkelement", nullptr);
 
-    if (!videoconvert || !videoscale || !capsfilter ||
-        !glupload || !glshader || !glconvert || !videosink) {
+    if (!videoconvert || !glupload || !glshader) {
       std::cerr << "Failed to create GL video elements\n";
+      gst_caps_unref(caps);
+      return;
+    }
+
+    GstElement* glsinkbin = gst_bin_get_by_name(GST_BIN(pipeline), "glsinkbin");
+    if (!glsinkbin) {
+      std::cerr << "glsinkbin not found in pipeline\n";
       gst_caps_unref(caps);
       return;
     }
@@ -136,17 +147,6 @@ void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
     gint width = 0, height = 0;
     gst_structure_get_int(structure, "width", &width);
     gst_structure_get_int(structure, "height", &height);
-    if (width > 0 && height > 0) {
-      GstCaps* scaleCaps = gst_caps_new_simple("video/x-raw",
-        "width", G_TYPE_INT, width * 2,
-        "height", G_TYPE_INT, height * 2,
-        nullptr);
-      g_object_set(G_OBJECT(capsfilter), "caps", scaleCaps, nullptr);
-      gst_caps_unref(scaleCaps);
-    }
-
-    // Disable aspect ratio to fill window without black bars
-    g_object_set(G_OBJECT(videosink), "force-aspect-ratio", FALSE, nullptr);
 
     ShaderLoader loader;
     self->renderer_.emplace();
@@ -154,18 +154,16 @@ void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
                                loader.loadVertex("shaders/default.vert"),
                                loader.loadFragment("shaders/eq_columns.frag"));
 
-    gst_bin_add_many(GST_BIN(pipeline), videoconvert, videoscale, capsfilter,
-                     glupload, glshader, glconvert, videosink, nullptr);
+    gst_bin_add_many(GST_BIN(pipeline), videoconvert,
+                     glupload, glshader, nullptr);
     gst_element_sync_state_with_parent(videoconvert);
-    gst_element_sync_state_with_parent(videoscale);
-    gst_element_sync_state_with_parent(capsfilter);
     gst_element_sync_state_with_parent(glupload);
     gst_element_sync_state_with_parent(glshader);
-    gst_element_sync_state_with_parent(glconvert);
-    gst_element_sync_state_with_parent(videosink);
 
-    gst_element_link_many(videoconvert, videoscale, capsfilter,
-                          glupload, glshader, glconvert, videosink, nullptr);
+    gst_element_link_many(videoconvert,
+                          glupload, glshader, glsinkbin, nullptr);
+
+    gst_object_unref(glsinkbin);
 
     GstPad* convSinkPad = gst_element_get_static_pad(videoconvert, "sink");
     GstPadLinkReturn ret = gst_pad_link(newPad, convSinkPad);
@@ -176,7 +174,7 @@ void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
     }
 
     if (width > 0 && height > 0) {
-      self->renderer_->setTextureSize(width * 2, height * 2);
+      self->renderer_->setTextureSize(width, height);
     }
 
     gst_caps_unref(caps);
@@ -196,7 +194,7 @@ gboolean Pipeline::onSignal(gpointer data) {
   auto* self = static_cast<Pipeline*>(data);
   std::cout << "\nShutting down" << std::endl;
   self->interrupted_ = true;
-  g_main_loop_quit(self->mainLoop_.get());
+  if (self->quitCb_) self->quitCb_();
   return G_SOURCE_REMOVE;
 }
 
@@ -222,12 +220,12 @@ void Pipeline::handleMessage(GstMessage* msg) {
       g_error_free(err);
       g_free(debug);
       hasError_ = true;
-      g_main_loop_quit(mainLoop_.get());
+      if (quitCb_) quitCb_();
       break;
     }
     case GST_MESSAGE_EOS:
       std::cout << "End of stream\n";
-      g_main_loop_quit(mainLoop_.get());
+      if (quitCb_) quitCb_();
       break;
     default:
       break;
