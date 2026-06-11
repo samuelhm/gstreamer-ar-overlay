@@ -5,14 +5,15 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 15:07:43 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 15:07:44 by shurtado         ###   ########.fr       */
+/*   Created: 2026/06/11 22:03:59 by shurtado          #+#    #+#             */
+/*   Updated: 2026/06/11 22:04:00 by shurtado         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #pragma once
 
 #include <gst/gst.h>
+
 #include <cstdint>
 #include <vector>
 

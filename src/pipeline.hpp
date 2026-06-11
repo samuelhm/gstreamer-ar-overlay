@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 15:07:24 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 15:07:25 by shurtado         ###   ########.fr       */
+/*   Created: 2026/06/11 22:04:12 by shurtado          #+#    #+#             */
+/*   Updated: 2026/06/11 22:04:13 by shurtado         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -61,10 +61,9 @@ private:
   GdkPaintable* paintable_ = nullptr;
   std::optional<SpectrumAnalyzer> spectrumAnalyzer_;
   std::optional<GLRenderer> renderer_;
-  int spectrumFrameCount_ = 0;
-  bool hasError_ = false;
-  bool interrupted_ = false;
   std::function<void()> quitCb_;
+  guint sigintSource_ = 0;
+  guint sigtermSource_ = 0;
 };
 
 } // namespace ar_overlay

@@ -5,21 +5,26 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 15:07:29 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 15:07:30 by shurtado         ###   ########.fr       */
+/*   Created: 2026/06/11 22:04:08 by shurtado          #+#    #+#             */
+/*   Updated: 2026/06/11 22:04:09 by shurtado         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #pragma once
 
 #include <gst/gst.h>
+
+#include <array>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace ar_overlay {
 
 class GLRenderer {
 public:
+  static constexpr int kNumBands = 16;
+
   GLRenderer() = default;
   ~GLRenderer() = default;
 

@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 15:07:40 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 15:07:41 by shurtado         ###   ########.fr       */
+/*   Created: 2026/06/11 22:04:01 by shurtado          #+#    #+#             */
+/*   Updated: 2026/06/11 22:04:02 by shurtado         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -40,7 +40,7 @@ bool SpectrumAnalyzer::processMessage(GstMessage* msg) {
   const guint count = gst_value_list_get_size(val);
   for (guint i = 0; i < count && i < bands_; ++i) {
     const GValue* item = gst_value_list_get_value(val, i);
-    magnitudes_[i] = static_cast<float>(g_value_get_float(item));
+    magnitudes_[i] = g_value_get_float(item);
   }
 
   return true;

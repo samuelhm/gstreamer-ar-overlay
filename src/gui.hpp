@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 15:07:15 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 15:07:16 by shurtado         ###   ########.fr       */
+/*   Created: 2026/06/11 22:04:24 by shurtado          #+#    #+#             */
+/*   Updated: 2026/06/11 22:04:25 by shurtado         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,10 +19,12 @@ namespace ar_overlay {
 class GUI {
 public:
   GUI(int argc, char* argv[]);
-  ~GUI() = default;
+  ~GUI();
 
   GUI(const GUI&) = delete;
   GUI& operator=(const GUI&) = delete;
+  GUI(GUI&&) noexcept = delete;
+  GUI& operator=(GUI&&) noexcept = delete;
 
   void setVideoPaintable(GdkPaintable* paintable);
   void run();

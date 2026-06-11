@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 15:07:13 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 15:07:14 by shurtado         ###   ########.fr       */
+/*   Created: 2026/06/11 22:04:27 by shurtado          #+#    #+#             */
+/*   Updated: 2026/06/11 22:04:28 by shurtado         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -33,6 +33,13 @@ GUI::GUI(int /*argc*/, char* /*argv*/[]) {
   }), nullptr);
 }
 
+GUI::~GUI() {
+  if (app_) {
+    g_object_unref(app_);
+    app_ = nullptr;
+  }
+}
+
 void GUI::setVideoPaintable(GdkPaintable* paintable) {
   GtkWidget* picture = gtk_picture_new_for_paintable(paintable);
   gtk_picture_set_can_shrink(GTK_PICTURE(picture), true);
@@ -44,7 +51,6 @@ void GUI::setVideoPaintable(GdkPaintable* paintable) {
 void GUI::run() {
   gtk_window_present(GTK_WINDOW(window_));
   g_application_run(G_APPLICATION(app_), 0, nullptr);
-  g_object_unref(app_);
 }
 
 } // namespace ar_overlay

@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 15:07:21 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 15:07:22 by shurtado         ###   ########.fr       */
+/*   Created: 2026/06/11 22:04:15 by shurtado          #+#    #+#             */
+/*   Updated: 2026/06/11 22:04:17 by shurtado         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,8 +49,8 @@ Pipeline::Pipeline(std::string_view filePath) {
 
   g_free(uri);
 
-  g_unix_signal_add(SIGINT, onSignal, this);
-  g_unix_signal_add(SIGTERM, onSignal, this);
+  sigintSource_ = g_unix_signal_add(SIGINT, onSignal, this);
+  sigtermSource_ = g_unix_signal_add(SIGTERM, onSignal, this);
 
   GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline_.get()));
   gst_bus_add_watch(bus, onBusMessage, this);
@@ -58,6 +58,8 @@ Pipeline::Pipeline(std::string_view filePath) {
 }
 
 Pipeline::~Pipeline() {
+  if (sigintSource_ > 0) g_source_remove(sigintSource_);
+  if (sigtermSource_ > 0) g_source_remove(sigtermSource_);
   g_clear_object(&paintable_);
 }
 
@@ -88,9 +90,7 @@ void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
   const gchar* name = gst_structure_get_name(structure);
 
   if (g_str_has_prefix(name, "audio/")) {
-    const bool firstAudio = !self->spectrumAnalyzer_.has_value();
-
-    if (firstAudio) {
+    if (!self->spectrumAnalyzer_.has_value()) {
       GstElement* audioconvert = gst_element_factory_make("audioconvert", nullptr);
       GstElement* spectrum = gst_element_factory_make("spectrum", nullptr);
       GstElement* audiosink = gst_element_factory_make("autoaudiosink", nullptr);
@@ -204,8 +204,6 @@ gboolean Pipeline::onBusMessage(GstBus* /*bus*/, GstMessage* msg, gpointer data)
 
 gboolean Pipeline::onSignal(gpointer data) {
   auto* self = static_cast<Pipeline*>(data);
-  std::cout << "\nShutting down" << std::endl;
-  self->interrupted_ = true;
   if (self->quitCb_) self->quitCb_();
   return G_SOURCE_REMOVE;
 }
@@ -215,11 +213,6 @@ void Pipeline::handleMessage(GstMessage* msg) {
     if (renderer_) {
       renderer_->updateAmplitudes(spectrumAnalyzer_->magnitudes());
     }
-
-    ++spectrumFrameCount_;
-    if (spectrumFrameCount_ % 30 == 0) {
-      std::cout << "Frame " << spectrumFrameCount_ << std::endl;
-    }
     return;
   }
 
@@ -228,17 +221,28 @@ void Pipeline::handleMessage(GstMessage* msg) {
       GError* err = nullptr;
       gchar* debug = nullptr;
       gst_message_parse_error(msg, &err, &debug);
-      std::cerr << "Error: " << err->message << std::endl;
+      std::cerr << "Error: " << err->message << '\n';
+      if (debug) {
+        std::cerr << "Debug: " << debug << '\n';
+      }
       g_error_free(err);
       g_free(debug);
-      hasError_ = true;
       if (quitCb_) quitCb_();
       break;
     }
     case GST_MESSAGE_EOS:
-      std::cout << "End of stream\n";
       if (quitCb_) quitCb_();
       break;
+    case GST_MESSAGE_ELEMENT: {
+      const GstStructure* s = gst_message_get_structure(msg);
+      if (gst_structure_has_name(s, "compat")) {
+        const gchar* errorMsg = gst_structure_get_string(s, "error");
+        if (errorMsg) {
+          std::cerr << "GL shader error: " << errorMsg << '\n';
+        }
+      }
+      break;
+    }
     default:
       break;
   }
