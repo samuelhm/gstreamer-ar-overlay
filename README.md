@@ -1,4 +1,4 @@
-# AR Overlay — Visualizador Multimedia Reactivo
+# Video-P — Visualizador Multimedia Reactivo
 
 Reproductor de video con efectos visuales sobre la imagen que reaccionan en tiempo real a las frecuencias del audio. El video se divide en 16 columnas verticales; cada columna se "ilumina" proporcionalmente a la amplitud de su banda de frecuencia correspondiente, creando un efecto donde el video baila al ritmo de la música.
 
