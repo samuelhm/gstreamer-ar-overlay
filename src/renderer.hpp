@@ -2,6 +2,7 @@
 
 #include <gst/gst.h>
 #include <gst/gl/gstglshader.h>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -24,11 +25,15 @@ public:
   void updateAmplitudes(const std::vector<float>& dBValues);
 
 private:
+  static GstPadProbeReturn onBufferProbe(GstPad* pad, GstPadProbeInfo* info,
+                                         gpointer data);
   static float dBtoLinear(float dB);
+  void applyUniforms(GstGLShader* shader);
   void applyTextureUniforms(GstGLShader* shader);
 
   GstElement* glshader_ = nullptr;
-  std::vector<float> smoothedAmplitudes_;
+  std::vector<float> pendingAmplitudes_;
+  std::mutex mutex_;
   float smoothingAlpha_ = 0.3f;
   int width_ = 0;
   int height_ = 0;
