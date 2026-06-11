@@ -1,21 +1,13 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   gui.cpp                                            :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 22:04:27 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 22:04:28 by shurtado         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "gui.hpp"
 
 namespace ar_overlay {
 
-GUI::GUI(int /*argc*/, char* /*argv*/[]) {
+GUI::GUI(int argc, char*[]) : argc_(argc) {
   gtk_init();
+
+  static constexpr int kDefaultWidth = 1920;
+  static constexpr int kDefaultHeight = 1080;
+
   app_ = gtk_application_new("dev.hurtadom.ar-overlay", G_APPLICATION_DEFAULT_FLAGS);
   g_application_register(G_APPLICATION(app_), nullptr, nullptr);
 
@@ -26,7 +18,7 @@ GUI::GUI(int /*argc*/, char* /*argv*/[]) {
 
   window_ = gtk_application_window_new(app_);
   gtk_window_set_title(GTK_WINDOW(window_), "AR Overlay");
-  gtk_window_set_default_size(GTK_WINDOW(window_), 1920, 1080);
+  gtk_window_set_default_size(GTK_WINDOW(window_), kDefaultWidth, kDefaultHeight);
 
   g_signal_connect(window_, "destroy", G_CALLBACK(+[](GtkWidget*, gpointer) {
     g_application_quit(g_application_get_default());
@@ -34,6 +26,12 @@ GUI::GUI(int /*argc*/, char* /*argv*/[]) {
 }
 
 GUI::~GUI() {
+  // GTK destroys child widgets when the parent is unreffed,
+  // but being explicit about window cleanup is safer.
+  if (window_) {
+    gtk_widget_unparent(window_);
+    window_ = nullptr;
+  }
   if (app_) {
     g_object_unref(app_);
     app_ = nullptr;
@@ -50,7 +48,7 @@ void GUI::setVideoPaintable(GdkPaintable* paintable) {
 
 void GUI::run() {
   gtk_window_present(GTK_WINDOW(window_));
-  g_application_run(G_APPLICATION(app_), 0, nullptr);
+  g_application_run(G_APPLICATION(app_), argc_, nullptr);
 }
 
 } // namespace ar_overlay

@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   gui.hpp                                            :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 22:04:24 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 22:04:25 by shurtado         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #pragma once
 
 #include <gtk/gtk.h>
@@ -32,6 +20,7 @@ public:
 private:
   GtkApplication* app_ = nullptr;
   GtkWidget* window_ = nullptr;
+  int argc_ = 0;
 };
 
 } // namespace ar_overlay

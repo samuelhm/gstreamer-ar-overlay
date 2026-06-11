@@ -1,22 +1,10 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   main.cpp                                           :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 22:04:20 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 22:04:21 by shurtado         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include <gst/gst.h>
-#include <gtk/gtk.h>
 
 #include <filesystem>
 #include <iostream>
 
 #include "gui.hpp"
+#include "log.hpp"
 #include "pipeline.hpp"
 
 int main(int argc, char* argv[]) {
@@ -52,7 +40,7 @@ int main(int argc, char* argv[]) {
 
     gui.run();
   } catch (const std::exception& e) {
-    std::cerr << "Fatal error: " << e.what() << '\n';
+    ar_overlay::logError(std::string("Fatal error: ") + e.what());
     return 1;
   }
 

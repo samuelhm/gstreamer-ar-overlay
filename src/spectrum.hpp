@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   spectrum.hpp                                       :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 22:03:59 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 22:04:00 by shurtado         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #pragma once
 
 #include <gst/gst.h>
@@ -40,7 +28,7 @@ public:
 private:
   std::vector<float> magnitudes_;
   guint bands_ = 0;
-  GstElement* spectrum_ = nullptr;
+  GstElement* spectrum_ = nullptr; // Non-owning. Must not outlive the element.
 };
 
 } // namespace ar_overlay

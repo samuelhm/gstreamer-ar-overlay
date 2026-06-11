@@ -1,37 +1,23 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   renderer.cpp                                       :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 22:04:10 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 22:04:11 by shurtado         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "renderer.hpp"
+#include "log.hpp"
 
 #include <cmath>
-#include <iostream>
 
 namespace ar_overlay {
 
-void GLRenderer::configure(GstElement* glshader, const std::string& vertexSrc,
-                           const std::string& fragmentSrc) {
-  glshader_ = glshader;
-
+GLRenderer::GLRenderer(GstElement* glshader, const std::string& vertexSrc,
+                       const std::string& fragmentSrc)
+    : glshader_(glshader) {
   g_object_set(G_OBJECT(glshader_),
     "vertex", vertexSrc.c_str(),
     "fragment", fragmentSrc.c_str(),
     nullptr);
-
-  configured_ = true;
 }
 
 void GLRenderer::setTextureSize(int width, int height) {
   if (width <= 0 || height <= 0) {
-    std::cerr << "Invalid texture size: " << width << "x" << height << '\n';
+    logError("Invalid texture size: " + std::to_string(width) + "x" +
+             std::to_string(height));
     return;
   }
   width_ = width;
@@ -39,7 +25,7 @@ void GLRenderer::setTextureSize(int width, int height) {
 }
 
 void GLRenderer::updateAmplitudes(const std::vector<float>& dBValues) {
-  if (!configured_ || dBValues.empty()) return;
+  if (!glshader_ || dBValues.empty()) return;
   if (width_ <= 0 || height_ <= 0) return;
 
   GstStructure* s = gst_structure_new_empty("uniforms");
@@ -55,9 +41,11 @@ void GLRenderer::updateAmplitudes(const std::vector<float>& dBValues) {
   }
 
   gst_structure_set(s,
-    "u_texel_x", G_TYPE_FLOAT, static_cast<double>(1.0f / static_cast<float>(width_)),
-    "u_texel_y", G_TYPE_FLOAT, static_cast<double>(1.0f / static_cast<float>(height_)),
-    "u_blur",    G_TYPE_FLOAT, 15.0,
+    "u_texel_x", G_TYPE_FLOAT,
+    static_cast<double>(1.0f / static_cast<float>(width_)),
+    "u_texel_y", G_TYPE_FLOAT,
+    static_cast<double>(1.0f / static_cast<float>(height_)),
+    "u_blur",    G_TYPE_FLOAT, static_cast<double>(kDefaultBlurRadius),
     nullptr);
 
   g_object_set(G_OBJECT(glshader_), "uniforms", s, nullptr);
@@ -65,7 +53,7 @@ void GLRenderer::updateAmplitudes(const std::vector<float>& dBValues) {
   gst_structure_free(s);
 }
 
-float GLRenderer::dBtoLinear(float dB) {
+constexpr float GLRenderer::dBtoLinear(float dB) noexcept {
   if (dB <= -60.0f) return 0.0f;
   if (dB >= 0.0f)   return 1.0f;
   return (dB + 60.0f) / 60.0f;

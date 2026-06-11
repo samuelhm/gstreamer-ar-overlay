@@ -1,19 +1,6 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   pipeline.hpp                                       :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/11 22:04:12 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/11 22:04:13 by shurtado         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #pragma once
 
 #include <gst/gst.h>
-#include <gtk/gtk.h>
 
 #include <functional>
 #include <memory>
@@ -22,6 +9,9 @@
 
 #include "spectrum.hpp"
 #include "renderer.hpp"
+
+// Forward declaration — avoids pulling in the full GTK4 header.
+typedef struct _GdkPaintable GdkPaintable;
 
 namespace ar_overlay {
 
@@ -34,7 +24,14 @@ struct GstElementDeleter {
   }
 };
 
+struct GstCapsDeleter {
+  void operator()(GstCaps* c) const noexcept {
+    if (c) gst_caps_unref(c);
+  }
+};
+
 using GstElementPtr = std::unique_ptr<GstElement, GstElementDeleter>;
+using GstCapsPtr = std::unique_ptr<GstCaps, GstCapsDeleter>;
 
 class Pipeline {
 public:
@@ -47,7 +44,10 @@ public:
   Pipeline& operator=(Pipeline&&) noexcept = default;
 
   bool start();
+
+  // Non-owning. Lifetime managed by Pipeline (g_clear_object in destructor).
   GdkPaintable* paintable() const { return paintable_; }
+
   void setQuitCallback(std::function<void()> cb) { quitCb_ = std::move(cb); }
 
 private:
@@ -56,6 +56,8 @@ private:
   static gboolean onSignal(gpointer data);
 
   void handleMessage(GstMessage* msg);
+  void handleAudioPad(GstPad* newPad, const GstCaps* caps);
+  void handleVideoPad(GstPad* newPad, const GstCaps* caps);
 
   GstElementPtr pipeline_;
   GdkPaintable* paintable_ = nullptr;
@@ -64,6 +66,9 @@ private:
   std::function<void()> quitCb_;
   guint sigintSource_ = 0;
   guint sigtermSource_ = 0;
+
+  std::string vertexSrc_;
+  std::string fragmentSrc_;
 };
 
 } // namespace ar_overlay

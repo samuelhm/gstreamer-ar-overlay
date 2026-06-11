@@ -291,7 +291,7 @@ El reproductor abre una ventana GTK4 a 1920×1080. El video se reproduce con el 
 | `Pipeline` | Construye el pipeline GStreamer, conecta pads dinámicos, gestiona el bus de mensajes y el ciclo de vida (RAII). |
 | `SpectrumAnalyzer` | Se adjunta al elemento `spectrum`, intercepta mensajes `"spectrum"` del bus y extrae el array `magnitude` de 16 floats. |
 | `GLRenderer` | Configura el `glshader` con el fragment shader inline, convierte amplitudes dB→linear y las empaqueta como uniforms en una `GstStructure`. |
-| `ShaderLoader` | Lee archivos `.vert`/`.frag` del disco (usado para referencia; el shader actual se compila inline en `renderer.cpp`). |
+| `ShaderLoader` | Lee archivos `.vert`/`.frag` del disco en tiempo de construcción del pipeline. |
 | `GUI` | Crea la ventana GTK4, obtiene el `GdkPaintable` del sink y lo muestra en un `GtkPicture`. |
 
 ## Roadmap
