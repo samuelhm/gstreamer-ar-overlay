@@ -19,4 +19,5 @@ executable('ar-overlay',
   'src/main.cpp',
   'src/pipeline.cpp',
   'src/spectrum.cpp',
+  'src/shader_loader.cpp',
   dependencies : [gst_dep])

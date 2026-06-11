@@ -112,24 +112,31 @@ void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
     }
 
   } else if (g_str_has_prefix(name, "video/")) {
-    GstElement* videosink = gst_element_factory_make("autovideosink", "video_sink");
+    GstElement* videoconvert = gst_element_factory_make("videoconvert", nullptr);
+    GstElement* glupload = gst_element_factory_make("glupload", nullptr);
+    GstElement* videosink = gst_element_factory_make("glimagesink", nullptr);
 
-    gst_caps_unref(caps);
-
-    if (!videosink) {
+    if (!videoconvert || !glupload || !videosink) {
+      std::cerr << "Failed to create GL video elements\n";
+      gst_caps_unref(caps);
       return;
     }
 
-    gst_bin_add(GST_BIN(pipeline), videosink);
+    gst_bin_add_many(GST_BIN(pipeline), videoconvert, glupload, videosink, nullptr);
+    gst_element_sync_state_with_parent(videoconvert);
+    gst_element_sync_state_with_parent(glupload);
     gst_element_sync_state_with_parent(videosink);
 
-    GstPad* sinkPad = gst_element_get_static_pad(videosink, "sink");
-    GstPadLinkReturn ret = gst_pad_link(newPad, sinkPad);
-    gst_object_unref(sinkPad);
+    gst_element_link_many(videoconvert, glupload, videosink, nullptr);
+
+    GstPad* convSinkPad = gst_element_get_static_pad(videoconvert, "sink");
+    GstPadLinkReturn ret = gst_pad_link(newPad, convSinkPad);
+    gst_object_unref(convSinkPad);
 
     if (ret != GST_PAD_LINK_OK) {
-      std::cerr << "Failed to link video pad\n";
+      std::cerr << "Failed to link video GL pad\n";
     }
+    gst_caps_unref(caps);
     return;
   }
 
