@@ -1,6 +1,9 @@
-# Meson / Ninja build artifacts
+# Build artifacts
 builddir/
 build/
+
+# Test media files
+media/
 
 # Compiled object files
 *.o
@@ -12,7 +15,7 @@ build/
 *.dll
 *.dylib
 
-# Executables (except the project binary pattern)
+# Executables
 *.exe
 
 # Dependency directories
@@ -38,17 +41,17 @@ vgcore.*
 core
 core.*
 
-# GStreamer registry cache (se genera en $HOME)
+# GStreamer registry cache
 .gstreamer-*
 
-# Compile commands (generado por Meson con -Dcompile_commands)
+# Compile commands symlink
 compile_commands.json
 
 # Cache de clangd / LSP
 .cache/
 .clangd/
 
-# Project documentation (not tracked in repo)
+# Project documentation (not tracked)
 AGENTS.md
 ROADMAP.md
 proyect.md

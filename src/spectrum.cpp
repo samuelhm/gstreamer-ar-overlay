@@ -1,7 +1,5 @@
 #include "spectrum.hpp"
 
-#include <iostream>
-
 namespace ar_overlay {
 
 void SpectrumAnalyzer::attach(GstElement* spectrum, guint bands) {

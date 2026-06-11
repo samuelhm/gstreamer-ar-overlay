@@ -13,7 +13,8 @@ Pipeline::Pipeline(std::string_view filePath) {
     throw std::runtime_error("Failed to create GStreamer elements");
   }
 
-  gchar* uri = gst_filename_to_uri(filePath.data(), nullptr);
+  const std::string path(filePath);
+  gchar* uri = gst_filename_to_uri(path.c_str(), nullptr);
   if (!uri) {
     throw std::runtime_error("Failed to convert file path to URI");
   }
@@ -143,10 +144,10 @@ gboolean Pipeline::onBusMessage(GstBus* /*bus*/, GstMessage* msg, gpointer data)
 
 void Pipeline::handleMessage(GstMessage* msg) {
   if (spectrumAnalyzer_ && spectrumAnalyzer_->processMessage(msg)) {
-    static int frameCount = 0;
-    if (++frameCount % 30 == 0) {
+    ++spectrumFrameCount_;
+    if (spectrumFrameCount_ % 30 == 0) {
       const auto& mags = spectrumAnalyzer_->magnitudes();
-      std::cout << "Magnitudes[" << frameCount << "]: [";
+      std::cout << "Magnitudes[" << spectrumFrameCount_ << "]: [";
       for (std::size_t i = 0; i < mags.size(); ++i) {
         if (i > 0) std::cout << ", ";
         std::cout << mags[i];
