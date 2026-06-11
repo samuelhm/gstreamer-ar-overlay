@@ -1,9 +1,8 @@
 #pragma once
 
-#include <gst/gst.h>
-
-#include <cstdint>
 #include <vector>
+
+#include <gst/gst.h>
 
 namespace ar_overlay {
 

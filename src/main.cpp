@@ -1,7 +1,7 @@
-#include <gst/gst.h>
-
 #include <filesystem>
 #include <iostream>
+
+#include <gst/gst.h>
 
 #include "gui.hpp"
 #include "log.hpp"
@@ -40,7 +40,8 @@ int main(int argc, char* argv[]) {
 
     gui.run();
   } catch (const std::exception& e) {
-    ar_overlay::logError(std::string("Fatal error: ") + e.what());
+    ar_overlay::logError("Fatal error: ");
+    ar_overlay::logError(e.what());
     return 1;
   }
 

@@ -1,5 +1,7 @@
 #include "gui.hpp"
 
+#include <stdexcept>
+
 namespace ar_overlay {
 
 GUI::GUI(int, char*[]) {
@@ -9,7 +11,21 @@ GUI::GUI(int, char*[]) {
   static constexpr int kDefaultHeight = 1080;
 
   app_ = gtk_application_new("dev.hurtadom.ar-overlay", G_APPLICATION_DEFAULT_FLAGS);
-  g_application_register(G_APPLICATION(app_), nullptr, nullptr);
+  if (!app_) {
+    throw std::runtime_error("Failed to create GTK application");
+  }
+
+  GError* error = nullptr;
+  if (!g_application_register(G_APPLICATION(app_), nullptr, &error)) {
+    std::string msg = "Failed to register GTK application";
+    if (error) {
+      msg += std::string(": ") + error->message;
+      g_error_free(error);
+    }
+    g_object_unref(app_);
+    app_ = nullptr;
+    throw std::runtime_error(msg);
+  }
 
   g_signal_connect(app_, "activate", G_CALLBACK(+[](GtkApplication*, gpointer data) {
     auto* self = static_cast<GUI*>(data);
@@ -26,8 +42,6 @@ GUI::GUI(int, char*[]) {
 }
 
 GUI::~GUI() {
-  // GTK destroys child widgets when the parent is unreffed,
-  // but being explicit about window cleanup is safer.
   if (window_) {
     gtk_widget_unparent(window_);
     window_ = nullptr;

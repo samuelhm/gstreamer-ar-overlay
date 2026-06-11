@@ -7,7 +7,7 @@
 namespace ar_overlay {
 
 std::string loadShaderFile(std::string_view path) {
-  std::ifstream file{std::string(path), std::ios::binary};
+  std::ifstream file{std::string(path)};
   if (!file.is_open()) {
     throw std::runtime_error("Failed to open shader file: " + std::string(path));
   }

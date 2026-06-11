@@ -1,10 +1,10 @@
-#include "pipeline.hpp"
-#include "log.hpp"
-#include "shader_loader.hpp"
+#include <stdexcept>
 
 #include <glib-unix.h>
 
-#include <stdexcept>
+#include "log.hpp"
+#include "pipeline.hpp"
+#include "shader_loader.hpp"
 
 namespace ar_overlay {
 
@@ -54,9 +54,47 @@ Pipeline::~Pipeline() {
   g_clear_object(&paintable_);
 }
 
+Pipeline::Pipeline(Pipeline&& other) noexcept
+    : pipeline_(std::move(other.pipeline_))
+    , paintable_(other.paintable_)
+    , spectrumAnalyzer_(std::move(other.spectrumAnalyzer_))
+    , renderer_(std::move(other.renderer_))
+    , quitCb_(std::move(other.quitCb_))
+    , sigintSource_(other.sigintSource_)
+    , sigtermSource_(other.sigtermSource_)
+    , vertexSrc_(std::move(other.vertexSrc_))
+    , fragmentSrc_(std::move(other.fragmentSrc_))
+{
+  other.paintable_ = nullptr;
+  other.sigintSource_ = 0;
+  other.sigtermSource_ = 0;
+}
+
+Pipeline& Pipeline::operator=(Pipeline&& other) noexcept {
+  if (this != &other) {
+    if (sigintSource_ > 0) g_source_remove(sigintSource_);
+    if (sigtermSource_ > 0) g_source_remove(sigtermSource_);
+    g_clear_object(&paintable_);
+
+    pipeline_ = std::move(other.pipeline_);
+    paintable_ = other.paintable_;
+    other.paintable_ = nullptr;
+    spectrumAnalyzer_ = std::move(other.spectrumAnalyzer_);
+    renderer_ = std::move(other.renderer_);
+    quitCb_ = std::move(other.quitCb_);
+    sigintSource_ = other.sigintSource_;
+    other.sigintSource_ = 0;
+    sigtermSource_ = other.sigtermSource_;
+    other.sigtermSource_ = 0;
+    vertexSrc_ = std::move(other.vertexSrc_);
+    fragmentSrc_ = std::move(other.fragmentSrc_);
+  }
+  return *this;
+}
+
 bool Pipeline::start() {
-  GstStateChangeReturn ret = gst_element_set_state(pipeline_.get(), GST_STATE_PLAYING);
-  if (ret == GST_STATE_CHANGE_FAILURE) {
+  GstStateChangeReturn stateResult = gst_element_set_state(pipeline_.get(), GST_STATE_PLAYING);
+  if (stateResult == GST_STATE_CHANGE_FAILURE) {
     logError("Failed to start pipeline");
     return false;
   }
@@ -132,11 +170,11 @@ void Pipeline::handleAudioPad(GstPad* newPad, const GstCaps* /*caps*/) {
     gst_element_link_many(audioconvert, spectrum, audiosink, nullptr);
 
     GstPad* convSinkPad = gst_element_get_static_pad(audioconvert, "sink");
-    GstPadLinkReturn ret = gst_pad_link(newPad, convSinkPad);
+    GstPadLinkReturn linkResult = gst_pad_link(newPad, convSinkPad);
     gst_object_unref(convSinkPad);
 
-    if (ret != GST_PAD_LINK_OK) {
-      logError("Failed to link audio pad");
+    if (linkResult != GST_PAD_LINK_OK) {
+      logWarning("Failed to link audio pad");
     }
 
     spectrumAnalyzer_.emplace();
@@ -149,12 +187,12 @@ void Pipeline::handleAudioPad(GstPad* newPad, const GstCaps* /*caps*/) {
     gst_bin_add(GST_BIN(pipeline), audiosink);
     gst_element_sync_state_with_parent(audiosink);
 
-    GstPad* sinkPad = gst_element_get_static_pad(audiosink, "sink");
-    GstPadLinkReturn ret = gst_pad_link(newPad, sinkPad);
-    gst_object_unref(sinkPad);
+    GstPad* additionalSinkPad = gst_element_get_static_pad(audiosink, "sink");
+    GstPadLinkReturn linkResult = gst_pad_link(newPad, additionalSinkPad);
+    gst_object_unref(additionalSinkPad);
 
-    if (ret != GST_PAD_LINK_OK) {
-      logError("Failed to link additional audio pad");
+    if (linkResult != GST_PAD_LINK_OK) {
+      logWarning("Failed to link additional audio pad");
     }
   }
 }
@@ -195,13 +233,13 @@ void Pipeline::handleVideoPad(GstPad* newPad, const GstCaps* caps) {
 
   gst_object_unref(glsinkbin);
 
-  GstPad* convSinkPad = gst_element_get_static_pad(videoconvert, "sink");
-  GstPadLinkReturn ret = gst_pad_link(newPad, convSinkPad);
-  gst_object_unref(convSinkPad);
+    GstPad* videoSinkPad = gst_element_get_static_pad(videoconvert, "sink");
+    GstPadLinkReturn linkResult = gst_pad_link(newPad, videoSinkPad);
+    gst_object_unref(videoSinkPad);
 
-  if (ret != GST_PAD_LINK_OK) {
-    logError("Failed to link video GL pad");
-  }
+    if (linkResult != GST_PAD_LINK_OK) {
+      logWarning("Failed to link video GL pad");
+    }
 
   if (width > 0 && height > 0) {
     renderer_->setTextureSize(width, height);
@@ -238,11 +276,11 @@ void Pipeline::handleMessage(GstMessage* msg) {
       if (quitCb_) quitCb_();
       break;
     case GST_MESSAGE_ELEMENT: {
-      const GstStructure* s = gst_message_get_structure(msg);
-      if (gst_structure_has_name(s, "compat")) {
-        const gchar* errorMsg = gst_structure_get_string(s, "error");
-        if (errorMsg) {
-          logError(std::string("GL shader error: ") + errorMsg);
+      const GstStructure* structure = gst_message_get_structure(msg);
+      if (gst_structure_has_name(structure, "compat")) {
+        const gchar* shaderError = gst_structure_get_string(structure, "error");
+        if (shaderError) {
+          logWarning(std::string("GL shader: ") + shaderError);
         }
       }
       break;

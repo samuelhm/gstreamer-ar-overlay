@@ -1,11 +1,10 @@
 #pragma once
 
-#include <gst/gst.h>
-
 #include <array>
 #include <string>
-#include <string_view>
 #include <vector>
+
+#include <gst/gst.h>
 
 namespace ar_overlay {
 
@@ -28,10 +27,12 @@ public:
   void updateAmplitudes(const std::vector<float>& dBValues);
 
 private:
-  static constexpr float dBtoLinear(float dB) noexcept;
+  static constexpr float normalizeDb(float dB) noexcept;
 
   GstElement* glshader_ = nullptr;
   float smoothingAlpha_ = kDefaultSmoothingAlpha;
+  std::array<float, kNumBands> smoothed_{};
+  bool smoothedInitialized_ = false;
   int width_ = 0;
   int height_ = 0;
 };

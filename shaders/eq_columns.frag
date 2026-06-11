@@ -4,22 +4,7 @@ precision mediump float;
 #endif
 varying vec2 v_texcoord;
 uniform sampler2D tex;
-uniform float u_a0;
-uniform float u_a1;
-uniform float u_a2;
-uniform float u_a3;
-uniform float u_a4;
-uniform float u_a5;
-uniform float u_a6;
-uniform float u_a7;
-uniform float u_a8;
-uniform float u_a9;
-uniform float u_a10;
-uniform float u_a11;
-uniform float u_a12;
-uniform float u_a13;
-uniform float u_a14;
-uniform float u_a15;
+uniform float u_a[16];
 uniform float u_texel_x;
 uniform float u_texel_y;
 uniform float u_blur;
@@ -44,40 +29,23 @@ vec3 neonColor(int band) {
 }
 
 void main(void) {
-    float colW = 1.0 / 16.0;
-    int band = int(floor(v_texcoord.x / colW));
+    float colWidth = 1.0 / 16.0;
+    int band = int(floor(v_texcoord.x / colWidth));
     if (band < 0) band = 0;
     if (band > 15) band = 15;
 
-    float posInCol = (v_texcoord.x - float(band) * colW) / colW;
+    float posInCol = (v_texcoord.x - float(band) * colWidth) / colWidth;
     float gapMargin = 0.08;
     if (posInCol < gapMargin || posInCol > (1.0 - gapMargin)) {
         gl_FragColor = texture2D(tex, v_texcoord);
         return;
     }
 
-    float a;
-    if      (band == 0)  a = u_a0;
-    else if (band == 1)  a = u_a1;
-    else if (band == 2)  a = u_a2;
-    else if (band == 3)  a = u_a3;
-    else if (band == 4)  a = u_a4;
-    else if (band == 5)  a = u_a5;
-    else if (band == 6)  a = u_a6;
-    else if (band == 7)  a = u_a7;
-    else if (band == 8)  a = u_a8;
-    else if (band == 9)  a = u_a9;
-    else if (band == 10) a = u_a10;
-    else if (band == 11) a = u_a11;
-    else if (band == 12) a = u_a12;
-    else if (band == 13) a = u_a13;
-    else if (band == 14) a = u_a14;
-    else                  a = u_a15;
+    float amplitude = clamp(u_a[band], 0.0, 1.0);
+    amplitude = max(amplitude, 0.08);
+    float yFromBottom = 1.0 - v_texcoord.y;
 
-    float amp = clamp(a, 0.0, 1.0);
-    amp = max(amp, 0.08);
-    float yb = 1.0 - v_texcoord.y;
-    if (yb >= amp) {
+    if (yFromBottom >= amplitude) {
         gl_FragColor = texture2D(tex, v_texcoord);
         return;
     }
@@ -87,8 +55,8 @@ void main(void) {
     float total = 0.0;
     for (float x = -2.0; x <= 2.0; x += 1.0) {
         for (float y = -2.0; y <= 2.0; y += 1.0) {
-            vec2 off = vec2(x * u_texel_x * u_blur, y * u_texel_y * u_blur);
-            blurred += texture2D(tex, v_texcoord + off);
+            vec2 offset = vec2(x * u_texel_x * u_blur, y * u_texel_y * u_blur);
+            blurred += texture2D(tex, v_texcoord + offset);
             total += 1.0;
         }
     }
@@ -96,8 +64,8 @@ void main(void) {
 
     float edgeV = 0.02;
     float edgeH = edgeV * 16.0;
-    float distTop = amp - yb;
-    float distBot = yb;
+    float distTop = amplitude - yFromBottom;
+    float distBot = yFromBottom;
     float distLeft = (posInCol - gapMargin) / (1.0 - 2.0 * gapMargin);
     float distRight = 1.0 - distLeft;
     float edgeT = distTop < edgeV ? 1.0 - distTop / edgeV : 0.0;

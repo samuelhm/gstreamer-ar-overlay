@@ -1,14 +1,14 @@
 #pragma once
 
-#include <gst/gst.h>
-
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
 
-#include "spectrum.hpp"
+#include <gst/gst.h>
+
 #include "renderer.hpp"
+#include "spectrum.hpp"
 
 // Forward declaration — avoids pulling in the full GTK4 header.
 typedef struct _GdkPaintable GdkPaintable;
@@ -40,8 +40,8 @@ public:
 
   Pipeline(const Pipeline&) = delete;
   Pipeline& operator=(const Pipeline&) = delete;
-  Pipeline(Pipeline&&) noexcept = default;
-  Pipeline& operator=(Pipeline&&) noexcept = default;
+  Pipeline(Pipeline&& other) noexcept;
+  Pipeline& operator=(Pipeline&& other) noexcept;
 
   bool start();
 
