@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   pipeline.cpp                                       :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: shurtado <samuel@hurtadom.dev>             +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/09 10:08:18 by shurtado          #+#    #+#             */
-/*   Updated: 2026/06/09 10:08:19 by shurtado         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "pipeline.hpp"
 
 #include <iostream>
@@ -25,12 +13,17 @@ Pipeline::Pipeline(std::string_view filePath) {
     throw std::runtime_error("Failed to create GStreamer elements");
   }
 
-  const std::string uri(filePath);
-  g_object_set(G_OBJECT(decodebin), "uri", uri.c_str(), nullptr);
+  gchar* uri = gst_filename_to_uri(filePath.data(), nullptr);
+  if (!uri) {
+    throw std::runtime_error("Failed to convert file path to URI");
+  }
+  g_object_set(G_OBJECT(decodebin), "uri", uri, nullptr);
 
-  g_signal_connect(decodebin, "pad-added", G_CALLBACK(onPadAdded), pipeline_.get());
+  g_signal_connect(decodebin, "pad-added", G_CALLBACK(onPadAdded), this);
 
   gst_bin_add(GST_BIN(pipeline_.get()), decodebin);
+
+  g_free(uri);
 
   mainLoop_.reset(g_main_loop_new(nullptr, FALSE));
 
@@ -50,7 +43,8 @@ bool Pipeline::run() {
 }
 
 void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
-  auto* pipeline = static_cast<GstElement*>(data);
+  auto* self = static_cast<Pipeline*>(data);
+  GstElement* pipeline = self->pipeline_.get();
 
   GstCaps* caps = gst_pad_get_current_caps(newPad);
   if (!caps) {
@@ -65,30 +59,80 @@ void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
   GstStructure* structure = gst_caps_get_structure(caps, 0);
   const gchar* name = gst_structure_get_name(structure);
 
-  GstElement* sink = nullptr;
-
   if (g_str_has_prefix(name, "audio/")) {
-    sink = gst_element_factory_make("autoaudiosink", "audio_sink");
+    const bool firstAudio = !self->spectrumAnalyzer_.has_value();
+
+    if (firstAudio) {
+      GstElement* audioconvert = gst_element_factory_make("audioconvert", nullptr);
+      GstElement* spectrum = gst_element_factory_make("spectrum", nullptr);
+      GstElement* audiosink = gst_element_factory_make("autoaudiosink", nullptr);
+
+      if (!audioconvert || !spectrum || !audiosink) {
+        std::cerr << "Failed to create audio elements\n";
+        gst_caps_unref(caps);
+        return;
+      }
+
+      gst_bin_add_many(GST_BIN(pipeline), audioconvert, spectrum, audiosink, nullptr);
+      gst_element_sync_state_with_parent(audioconvert);
+      gst_element_sync_state_with_parent(spectrum);
+      gst_element_sync_state_with_parent(audiosink);
+
+      gst_element_link_many(audioconvert, spectrum, audiosink, nullptr);
+
+      GstPad* convSinkPad = gst_element_get_static_pad(audioconvert, "sink");
+      GstPadLinkReturn ret = gst_pad_link(newPad, convSinkPad);
+      gst_object_unref(convSinkPad);
+
+      if (ret != GST_PAD_LINK_OK) {
+        std::cerr << "Failed to link audio pad\n";
+      }
+
+      self->spectrumAnalyzer_.emplace();
+      self->spectrumAnalyzer_->attach(spectrum);
+    } else {
+      GstElement* audiosink = gst_element_factory_make("autoaudiosink", nullptr);
+
+      if (!audiosink) {
+        gst_caps_unref(caps);
+        return;
+      }
+
+      gst_bin_add(GST_BIN(pipeline), audiosink);
+      gst_element_sync_state_with_parent(audiosink);
+
+      GstPad* sinkPad = gst_element_get_static_pad(audiosink, "sink");
+      GstPadLinkReturn ret = gst_pad_link(newPad, sinkPad);
+      gst_object_unref(sinkPad);
+
+      if (ret != GST_PAD_LINK_OK) {
+        std::cerr << "Failed to link additional audio pad\n";
+      }
+    }
+
   } else if (g_str_has_prefix(name, "video/")) {
-    sink = gst_element_factory_make("autovideosink", "video_sink");
-  }
+    GstElement* videosink = gst_element_factory_make("autovideosink", "video_sink");
 
-  gst_caps_unref(caps);
+    gst_caps_unref(caps);
 
-  if (!sink) {
+    if (!videosink) {
+      return;
+    }
+
+    gst_bin_add(GST_BIN(pipeline), videosink);
+    gst_element_sync_state_with_parent(videosink);
+
+    GstPad* sinkPad = gst_element_get_static_pad(videosink, "sink");
+    GstPadLinkReturn ret = gst_pad_link(newPad, sinkPad);
+    gst_object_unref(sinkPad);
+
+    if (ret != GST_PAD_LINK_OK) {
+      std::cerr << "Failed to link video pad\n";
+    }
     return;
   }
 
-  gst_bin_add(GST_BIN(pipeline), sink);
-  gst_element_sync_state_with_parent(sink);
-
-  GstPad* sinkPad = gst_element_get_static_pad(sink, "sink");
-  GstPadLinkReturn ret = gst_pad_link(newPad, sinkPad);
-  gst_object_unref(sinkPad);
-
-  if (ret != GST_PAD_LINK_OK) {
-    std::cerr << "Failed to link pad: " << name << "\n";
-  }
+  gst_caps_unref(caps);
 }
 
 gboolean Pipeline::onBusMessage(GstBus* /*bus*/, GstMessage* msg, gpointer data) {
@@ -98,6 +142,20 @@ gboolean Pipeline::onBusMessage(GstBus* /*bus*/, GstMessage* msg, gpointer data)
 }
 
 void Pipeline::handleMessage(GstMessage* msg) {
+  if (spectrumAnalyzer_ && spectrumAnalyzer_->processMessage(msg)) {
+    static int frameCount = 0;
+    if (++frameCount % 30 == 0) {
+      const auto& mags = spectrumAnalyzer_->magnitudes();
+      std::cout << "Magnitudes[" << frameCount << "]: [";
+      for (std::size_t i = 0; i < mags.size(); ++i) {
+        if (i > 0) std::cout << ", ";
+        std::cout << mags[i];
+      }
+      std::cout << "]" << std::endl;
+    }
+    return;
+  }
+
   switch (GST_MESSAGE_TYPE(msg)) {
     case GST_MESSAGE_ERROR: {
       GError* err = nullptr;

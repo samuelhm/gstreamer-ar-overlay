@@ -14,6 +14,9 @@
 
 #include <gst/gst.h>
 #include <memory>
+#include <optional>
+
+#include "spectrum.hpp"
 
 namespace ar_overlay {
 
@@ -57,6 +60,7 @@ private:
 
   GMainLoopPtr mainLoop_;
   GstElementPtr pipeline_;
+  std::optional<SpectrumAnalyzer> spectrumAnalyzer_;
   bool hasError_ = false;
 };
 

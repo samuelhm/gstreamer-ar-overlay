@@ -18,4 +18,5 @@ gst_dep = dependency('gstreamer-1.0', version : '>=1.20')
 executable('ar-overlay',
   'src/main.cpp',
   'src/pipeline.cpp',
+  'src/spectrum.cpp',
   dependencies : [gst_dep])
