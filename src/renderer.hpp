@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gst/gst.h>
+#include <gst/gl/gstglshader.h>
 #include <string>
 #include <vector>
 
@@ -24,13 +25,15 @@ public:
 
 private:
   static float dBtoLinear(float dB);
-  void setUniform1fv(const char* name, const std::vector<float>& values) const;
-  void setUniform1f(const char* name, float value) const;
+  void applyTextureUniforms(GstGLShader* shader);
 
   GstElement* glshader_ = nullptr;
   std::vector<float> smoothedAmplitudes_;
   float smoothingAlpha_ = 0.3f;
+  int width_ = 0;
+  int height_ = 0;
   bool configured_ = false;
+  bool textureUniformsSet_ = false;
 };
 
 } // namespace ar_overlay

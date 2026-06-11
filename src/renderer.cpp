@@ -1,7 +1,5 @@
 #include "renderer.hpp"
 
-#include <gst/gl/gstglshader.h>
-
 #include <cmath>
 
 namespace ar_overlay {
@@ -20,18 +18,18 @@ void GLRenderer::configure(GstElement* glshader, const std::string& vertexSrc,
 }
 
 void GLRenderer::setTextureSize(int width, int height) {
-  if (!configured_) return;
+  width_ = width;
+  height_ = height;
+}
 
-  GstGLShader* shader = nullptr;
-  g_object_get(G_OBJECT(glshader_), "shader", &shader, nullptr);
-  if (!shader) return;
+void GLRenderer::applyTextureUniforms(GstGLShader* shader) {
+  if (width_ <= 0 || height_ <= 0) return;
 
-  float texel[2] = { 1.0f / static_cast<float>(width),
-                     1.0f / static_cast<float>(height) };
+  float texel[2] = { 1.0f / static_cast<float>(width_),
+                     1.0f / static_cast<float>(height_) };
   gst_gl_shader_set_uniform_2fv(shader, "u_texel_size", 1, texel);
-  gst_gl_shader_set_uniform_1f(shader, "u_blur_radius", 12.0f);
-
-  gst_object_unref(shader);
+  gst_gl_shader_set_uniform_1f(shader, "u_blur_radius", 15.0f);
+  textureUniformsSet_ = true;
 }
 
 void GLRenderer::updateAmplitudes(const std::vector<float>& dBValues) {
@@ -57,6 +55,10 @@ void GLRenderer::updateAmplitudes(const std::vector<float>& dBValues) {
   g_object_get(G_OBJECT(glshader_), "shader", &shader, nullptr);
   if (!shader) return;
 
+  if (!textureUniformsSet_) {
+    applyTextureUniforms(shader);
+  }
+
   gst_gl_shader_set_uniform_1fv(shader, "u_amplitudes",
                                 smoothedAmplitudes_.size(),
                                 smoothedAmplitudes_.data());
@@ -68,31 +70,6 @@ float GLRenderer::dBtoLinear(float dB) {
   if (dB <= -60.0f) return 0.0f;
   if (dB >= 0.0f) return 1.0f;
   return (dB + 60.0f) / 60.0f;
-}
-
-void GLRenderer::setUniform1fv(const char* name,
-                               const std::vector<float>& values) const {
-  if (!configured_) return;
-
-  GstGLShader* shader = nullptr;
-  g_object_get(G_OBJECT(glshader_), "shader", &shader, nullptr);
-  if (!shader) return;
-
-  gst_gl_shader_set_uniform_1fv(shader, name, values.size(), values.data());
-
-  gst_object_unref(shader);
-}
-
-void GLRenderer::setUniform1f(const char* name, float value) const {
-  if (!configured_) return;
-
-  GstGLShader* shader = nullptr;
-  g_object_get(G_OBJECT(glshader_), "shader", &shader, nullptr);
-  if (!shader) return;
-
-  gst_gl_shader_set_uniform_1f(shader, name, value);
-
-  gst_object_unref(shader);
 }
 
 } // namespace ar_overlay

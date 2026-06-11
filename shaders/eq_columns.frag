@@ -30,16 +30,16 @@ void main(void) {
     amplitude = clamp(amplitude, 0.0, 1.0);
 
     float yFromBottom = 1.0 - texcoord.y;
-    float edgeThreshold = 0.008;
+    float edgeWidth = 0.006;
 
     if (yFromBottom < amplitude) {
         vec4 blurred = blur25(tex, texcoord, u_texel_size, u_blur_radius);
 
         float distToEdge = amplitude - yFromBottom;
-        if (distToEdge < edgeThreshold) {
-            float glow = 1.0 - (distToEdge / edgeThreshold);
-            vec4 neon = vec4(0.0, 0.9, 1.0, 1.0) * glow;
-            gl_FragColor = mix(blurred, neon, glow * 0.6);
+        if (distToEdge < edgeWidth) {
+            float glow = 1.0 - (distToEdge / edgeWidth);
+            vec4 neon = vec4(0.0, 1.0, 0.8, 1.0) * glow;
+            gl_FragColor = mix(blurred, neon, glow * 0.5);
         } else {
             gl_FragColor = blurred;
         }
