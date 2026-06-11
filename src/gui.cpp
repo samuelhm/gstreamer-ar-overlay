@@ -2,7 +2,7 @@
 
 namespace ar_overlay {
 
-GUI::GUI(int argc, char*[]) : argc_(argc) {
+GUI::GUI(int, char*[]) {
   gtk_init();
 
   static constexpr int kDefaultWidth = 1920;
@@ -48,7 +48,7 @@ void GUI::setVideoPaintable(GdkPaintable* paintable) {
 
 void GUI::run() {
   gtk_window_present(GTK_WINDOW(window_));
-  g_application_run(G_APPLICATION(app_), argc_, nullptr);
+  g_application_run(G_APPLICATION(app_), 0, nullptr);
 }
 
 } // namespace ar_overlay

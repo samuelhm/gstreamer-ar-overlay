@@ -20,7 +20,6 @@ public:
 private:
   GtkApplication* app_ = nullptr;
   GtkWidget* window_ = nullptr;
-  int argc_ = 0;
 };
 
 } // namespace ar_overlay
