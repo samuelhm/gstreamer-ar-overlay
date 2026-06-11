@@ -25,10 +25,27 @@ void main(void) {
         return;
     }
 
-    // Dynamic indexing of uniform arrays works in GLES 3.0+
-    float amplitude = u_amplitudes[band];
+    // Constant-index lookup for all 16 bands
+    float amplitude;
+    if      (band == 0)  amplitude = u_amplitudes[0];
+    else if (band == 1)  amplitude = u_amplitudes[1];
+    else if (band == 2)  amplitude = u_amplitudes[2];
+    else if (band == 3)  amplitude = u_amplitudes[3];
+    else if (band == 4)  amplitude = u_amplitudes[4];
+    else if (band == 5)  amplitude = u_amplitudes[5];
+    else if (band == 6)  amplitude = u_amplitudes[6];
+    else if (band == 7)  amplitude = u_amplitudes[7];
+    else if (band == 8)  amplitude = u_amplitudes[8];
+    else if (band == 9)  amplitude = u_amplitudes[9];
+    else if (band == 10) amplitude = u_amplitudes[10];
+    else if (band == 11) amplitude = u_amplitudes[11];
+    else if (band == 12) amplitude = u_amplitudes[12];
+    else if (band == 13) amplitude = u_amplitudes[13];
+    else if (band == 14) amplitude = u_amplitudes[14];
+    else                 amplitude = u_amplitudes[15];
+
     amplitude = clamp(amplitude, 0.0, 1.0);
-    amplitude = max(amplitude, 0.15);
+    amplitude = max(amplitude, 0.08);
 
     float yFromBottom = 1.0 - texcoord.y;
 
