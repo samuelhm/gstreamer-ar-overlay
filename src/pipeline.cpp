@@ -124,7 +124,7 @@ void Pipeline::onPadAdded(GstElement* /*src*/, GstPad* newPad, gpointer data) {
     GstElement* glupload = gst_element_factory_make("glupload", nullptr);
     GstElement* glshader = gst_element_factory_make("glshader", nullptr);
     GstElement* glconvert = gst_element_factory_make("glcolorconvert", nullptr);
-    GstElement* videosink = gst_element_factory_make("glimagesink", nullptr);
+    GstElement* videosink = gst_element_factory_make("glimagesinkelement", nullptr);
 
     if (!videoconvert || !videoscale || !capsfilter ||
         !glupload || !glshader || !glconvert || !videosink) {

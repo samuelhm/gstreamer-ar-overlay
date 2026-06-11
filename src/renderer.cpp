@@ -6,11 +6,12 @@
 
 namespace ar_overlay {
 
-void GLRenderer::configure(GstElement* glshader, const std::string& /*vertexSrc*/,
+void GLRenderer::configure(GstElement* glshader, const std::string& vertexSrc,
                            const std::string& fragmentSrc) {
   glshader_ = glshader;
 
   g_object_set(G_OBJECT(glshader_),
+    "vertex", vertexSrc.c_str(),
     "fragment", fragmentSrc.c_str(),
     nullptr);
 
