@@ -1,10 +1,12 @@
+#version 300 es
 precision mediump float;
 
-varying vec2 texcoord;
+in vec2 texcoord;
 uniform sampler2D tex;
 uniform float u_amplitudes[16];
 uniform vec2 u_texel_size;
 uniform float u_blur_radius;
+out vec4 fragColor;
 
 void main(void) {
     float bandCount = 16.0;
@@ -19,10 +21,11 @@ void main(void) {
     float posInCol = (texcoord.x - colStart) / colW;
 
     if (posInCol < gap || posInCol > (1.0 - gap)) {
-        gl_FragColor = texture2D(tex, texcoord);
+        fragColor = texture(tex, texcoord);
         return;
     }
 
+    // Dynamic indexing of uniform arrays works in GLES 3.0+
     float amplitude = u_amplitudes[band];
     amplitude = clamp(amplitude, 0.0, 1.0);
     amplitude = max(amplitude, 0.15);
@@ -30,11 +33,10 @@ void main(void) {
     float yFromBottom = 1.0 - texcoord.y;
 
     if (yFromBottom >= amplitude) {
-        gl_FragColor = texture2D(tex, texcoord);
+        fragColor = texture(tex, texcoord);
         return;
     }
 
-    // Box blur inside the bar
     vec4 blurred = vec4(0.0);
     float total = 0.0;
     float r = u_blur_radius;
@@ -42,20 +44,19 @@ void main(void) {
         for (float y = -2.0; y <= 2.0; y += 1.0) {
             vec2 off = vec2(x * u_texel_size.x * r,
                             y * u_texel_size.y * r);
-            blurred += texture2D(tex, texcoord + off);
+            blurred += texture(tex, texcoord + off);
             total += 1.0;
         }
     }
     blurred /= total;
 
-    // Neon edge at bar top
     float distToEdge = amplitude - yFromBottom;
     float edgeWidth = 0.006;
     if (distToEdge < edgeWidth) {
         float glow = 1.0 - (distToEdge / edgeWidth);
         vec4 neon = vec4(0.0, 1.0, 0.8, 1.0);
-        gl_FragColor = mix(blurred, neon, glow * 0.5);
+        fragColor = mix(blurred, neon, glow * 0.5);
     } else {
-        gl_FragColor = blurred;
+        fragColor = blurred;
     }
 }
