@@ -95,19 +95,18 @@ El ciclo completo de procesamiento de cada frame sigue estos pasos:
    ┌─────────────────────────────────────────┐
    │ GLRenderer::updateAmplitudes(dBValues)  │
    │                                         │
-   │  dBtoLinear(dB) → [0.0, 1.0]           │
+   │  normalizeDb(dB) → [0.0, 1.0]          │
+   │  EMA smoothing (α=0.3) entre frames     │
    │  Empaqueta en GstStructure:             │
-   │    u_a0  = amplitud banda 0             │
-   │    u_a1  = amplitud banda 1             │
+   │    u_a[0]  = amplitud banda 0           │
+   │    u_a[1]  = amplitud banda 1           │
    │    ...                                  │
-   │    u_a15 = amplitud banda 15            │
+   │    u_a[15] = amplitud banda 15          │
    │    u_texel_x = 1/width                  │
    │    u_texel_y = 1/height                 │
    │    u_blur = 15.0                        │
    │                                         │
    │  g_object_set(glshader, "uniforms", s)  │
-   │  g_object_set(glshader, "update-shader",│
-   │               TRUE)                     │
    └─────────────────────────────────────────┘
 
 5. RENDERIZADO EN GPU                            ← GPU (Fragment Shader)
@@ -159,19 +158,21 @@ El ciclo completo de procesamiento de cada frame sigue estos pasos:
 
 ## El Fragment Shader en detalle
 
-El shader (`eq_columns.frag` / código inline en `renderer.cpp`) implementa el algoritmo de enmascarado por columnas:
+El shader (`eq_columns.frag`) implementa el algoritmo de enmascarado por columnas:
 
 ### 1. División en columnas
 ```glsl
-float colW = 1.0 / 16.0;
-int band = int(floor(v_texcoord.x / colW));
+float colWidth = 1.0 / 16.0;
+int band = int(floor(v_texcoord.x / colWidth));
+if (band < 0) band = 0;
+if (band > 15) band = 15;
 ```
 La pantalla se divide en 16 franjas verticales iguales. Cada píxel se asigna a una banda `[0..15]`.
 
 ### 2. Márgenes entre columnas
 ```glsl
 float gapMargin = 0.08;  // 8% de margen a cada lado
-float posInCol = (v_texcoord.x - float(band) * colW) / colW;
+float posInCol = (v_texcoord.x - float(band) * colWidth) / colWidth;
 if (posInCol < gapMargin || posInCol > (1.0 - gapMargin)) {
     gl_FragColor = texture2D(tex, v_texcoord);  // video original
     return;
@@ -181,22 +182,23 @@ Un 16% del ancho de cada columna (8% a cada lado) se reserva como separador dond
 
 ### 3. Máscara por amplitud
 ```glsl
-float amp = clamp(a, 0.0, 1.0);
-float yb = 1.0 - v_texcoord.y;  // coordenada Y invertida
-if (yb >= amp) {
+float amplitude = clamp(u_a[band], 0.0, 1.0);
+amplitude = max(amplitude, 0.08);
+float yFromBottom = 1.0 - v_texcoord.y;  // coordenada Y invertida
+if (yFromBottom >= amplitude) {
     gl_FragColor = texture2D(tex, v_texcoord);  // fuera de la barra: video original
     return;
 }
 ```
-Si la coordenada Y del píxel está por encima de la altura proporcional a la amplitud de esa banda, se muestra el video sin tocar. Si está dentro de la barra, se aplica el efecto.
+Si la coordenada Y del píxel está por encima de la altura proporcional a la amplitud de esa banda, se muestra el video sin tocar. Si está dentro de la barra, se aplica el efecto. El `max(amplitude, 0.08)` garantiza visibilidad mínima de las bandas siempre.
 
 ### 4. Efecto neón con blur
 ```glsl
 // Blur del vecindario 5×5
 for (float x = -2.0; x <= 2.0; x += 1.0) {
     for (float y = -2.0; y <= 2.0; y += 1.0) {
-        vec2 off = vec2(x * u_texel_x * u_blur, y * u_texel_y * u_blur);
-        blurred += texture2D(tex, v_texcoord + off);
+        vec2 offset = vec2(x * u_texel_x * u_blur, y * u_texel_y * u_blur);
+        blurred += texture2D(tex, v_texcoord + offset);
     }
 }
 blurred /= 25.0;
@@ -235,10 +237,12 @@ gstreamer-ar-overlay/
 │   └── eq_columns.frag            # Fragment shader (máscara de columnas)
 ├── src/                           # Código fuente C++20
 │   ├── main.cpp                   # Punto de entrada
+│   ├── config.hpp                 # Constantes compartidas (kNumBands, etc.)
 │   ├── pipeline.hpp / .cpp        # Pipeline GStreamer (RAII)
 │   ├── spectrum.hpp / .cpp        # Analizador FFT (lee mensajes "spectrum")
 │   ├── renderer.hpp / .cpp        # Controlador GLSL (uniforms, conversión dB)
 │   ├── shader_loader.hpp / .cpp   # Carga de archivos .vert/.frag desde disco
+│   ├── log.hpp                    # Logging con severidades (error/warning/info)
 │   └── gui.hpp / .cpp             # Ventana GTK4 + GtkPicture
 ├── meson.build                    # Build system
 └── README.md
@@ -290,19 +294,55 @@ El reproductor abre una ventana GTK4 a 1920×1080. El video se reproduce con el 
 |---|---|
 | `Pipeline` | Construye el pipeline GStreamer, conecta pads dinámicos, gestiona el bus de mensajes y el ciclo de vida (RAII). |
 | `SpectrumAnalyzer` | Se adjunta al elemento `spectrum`, intercepta mensajes `"spectrum"` del bus y extrae el array `magnitude` de 16 floats. |
-| `GLRenderer` | Configura el `glshader` con el fragment shader inline, convierte amplitudes dB→linear y las empaqueta como uniforms en una `GstStructure`. |
-| `ShaderLoader` | Lee archivos `.vert`/`.frag` del disco en tiempo de construcción del pipeline. |
+| `GLRenderer` | Configura el `glshader` con el fragment shader, convierte amplitudes dB→linear con suavizado EMA, y las empaqueta como uniforms `u_a[N]` en una `GstStructure`. |
+| `ShaderLoader` | Lee archivos `.vert`/`.frag` del disco, retorna `std::optional<std::string>`. |
 | `GUI` | Crea la ventana GTK4, obtiene el `GdkPaintable` del sink y lo muestra en un `GtkPicture`. |
 
-## Roadmap
+## Próximas funcionalidades
 
-| Fase | Estado |
-|---|---|
-| 1. Esqueleto del proyecto | ✅ |
-| 2. Pipeline multimedia básico | ✅ |
-| 3. Análisis de espectro de audio (FFT) | ✅ |
-| 4. Renderizado OpenGL básico | ✅ |
-| 5. Shader reactivo al audio (columnas + neón) | ✅ |
-| 6. Pulido y robustez | 🔲 |
+### Catálogo de shaders
+- Sistema de selección de shader en tiempo real desde menú GTK
+- Shaders adicionales: ondas concéntricas, túnel FFT 3D, partículas por beat, distorsión kaleidoscopio
+- Previsualización en miniatura del efecto activo
+- Transiciones suaves entre shaders (crossfade de uniforms)
 
-Ver [ROADMAP.md](ROADMAP.md) para más detalles.
+### Control de reproducción
+- Play / pausa con barra espaciadora
+- Retroceso y avance rápido (±10s, ±30s con teclas de flecha)
+- Control de velocidad (0.25×, 0.5×, 1×, 1.5×, 2×) con atajo de teclado
+- Seek interactivo con slider en barra de progreso
+- Volumen con atajo de teclado y overlay visual
+
+### Interfaz GTK
+- Menú Archivo → Abrir (diálogo nativo `GtkFileChooser`)
+- Menú Archivo → Archivos recientes (últimos 5 archivos)
+- Menú Ver → Shader (submenú con lista de shaders disponibles)
+- Menú Ver → Pantalla completa (F11)
+- Menú Control → Play/Pause, Velocidad, Volumen
+- Barra de estado con: tiempo actual / duración total, FPS, bandas activas
+
+### Efectos visuales adicionales
+- Reactividad a graves/medios/agudos con asignación configurable de bandas
+- Modo picture-in-picture del video original en esquina
+- Visualizador de waveform y espectrograma superpuesto
+- Partículas GPU reactivas al beat (detección de onsets)
+- Soporte para múltiples pistas de audio con shader independiente por pista
+
+### Entrada y formatos
+- Arrastrar y soltar archivos sobre la ventana (drag & drop)
+- Soporte para streams de red (HTTP, RTSP, YouTube-dl)
+- Carga de playlists (`.m3u`, `.m3u8`)
+- Entrada de micrófono en tiempo real (captura live + shader)
+
+### Exportación
+- Grabar sesión a `.mp4` con el efecto aplicado (encoder por hardware)
+- Captura de screenshot en resolución nativa del video
+- Exportar configuración de shader como preset JSON
+
+### Robustez
+- Tests unitarios con `gst_harness` para `SpectrumAnalyzer` y `GLRenderer`
+- Tests de integración con videos de referencia y checksums de frames
+- Sanitizers (Address, Undefined, Thread) en CI
+- Modo headless para renderizado por lotes sin ventana
+- Logging estructurado con niveles y salida a archivo
+- Recuperación automática ante pérdida de contexto GL
