@@ -62,7 +62,7 @@ Reproductor de video con efectos visuales sobre la imagen que reaccionan en tiem
 │      │       │
 │  ┌───┴────┐  │
 │  │gtk4    │  │  ← GdkPaintable → GtkPicture → ventana GTK4
-│  │paintable│  │
+│  │paintable│ │
 │  │sink    │  │
 │  └────────┘  │
 └──────────────┘
@@ -86,7 +86,7 @@ El ciclo completo de procesamiento de cada frame sigue estos pasos:
 3. LECTURA DE MAGNITUDES                          ← CPU (SpectrumAnalyzer)
    ┌─────────────────────────────────────────┐
    │ SpectrumAnalyzer::processMessage(msg)   │
-   │ Extrae el array "magnitude" del mensaje  │
+   │ Extrae el array "magnitude" del mensaje │
    │ y almacena los 16 valores dB en         │
    │ magnitudes_ (std::vector<float>).       │
    └─────────────────────────────────────────┘
@@ -95,7 +95,7 @@ El ciclo completo de procesamiento de cada frame sigue estos pasos:
    ┌─────────────────────────────────────────┐
    │ GLRenderer::updateAmplitudes(dBValues)  │
    │                                         │
-   │  normalizeDb(dB) → [0.0, 1.0]          │
+   │  normalizeDb(dB) → [0.0, 1.0]           │
    │  EMA smoothing (α=0.3) entre frames     │
    │  Empaqueta en GstStructure:             │
    │    u_a[0]  = amplitud banda 0           │
@@ -111,7 +111,7 @@ El ciclo completo de procesamiento de cada frame sigue estos pasos:
 
 5. RENDERIZADO EN GPU                            ← GPU (Fragment Shader)
    ┌─────────────────────────────────────────┐
-   │ Por cada píxel del frame de video:       │
+   │ Por cada píxel del frame de video:      │
    │                                         │
    │  a) Calcula a qué columna pertenece     │
    │     según v_texcoord.x (16 columnas).   │
